@@ -115,3 +115,5 @@ void HCSR04_CheckEchoTimeout(void)
 }
 
 void HCSR04_SetCurrentSweepAngle(float_t angle) { measurement_angle = angle; }
+
+uint8_t HCSR04_IsBusy(void) { return last_captured_rising_edge; }

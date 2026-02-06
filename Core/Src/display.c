@@ -112,7 +112,7 @@ typedef struct
 
 } RadarDot_TypeDef;
 
-RadarDot_TypeDef radar_dots[NBR_OF_RADAR_DOTS];
+__attribute__((aligned(32))) volatile RadarDot_TypeDef radar_dots[NBR_OF_RADAR_DOTS];
 uint16_t radar_dots_next_index = 0;
 
 static Point corner_cordinates[4][2] = {
@@ -131,7 +131,10 @@ static Point corner_cordinates[4][2] = {
     {{LCD_DEFAULT_WIDTH - CORNER_OFFSET_X - CORNER_ARM_LENGTH, LCD_DEFAULT_HEIGHT - CORNER_OFFSET_Y},
      {LCD_DEFAULT_WIDTH - CORNER_OFFSET_X, LCD_DEFAULT_HEIGHT - CORNER_OFFSET_Y - CORNER_ARM_LENGTH}}};
 
-static inline void set_dot_data_zero(void) { memset(radar_dots, 0, sizeof(RadarDot_TypeDef) * NBR_OF_RADAR_DOTS); }
+static inline void set_dot_data_zero(void)
+{
+    memset((void*)radar_dots, 0, sizeof(RadarDot_TypeDef) * NBR_OF_RADAR_DOTS);
+}
 
 void MK_Display_Init(void)
 {
@@ -229,7 +232,7 @@ void draw_background_static_once(void)
     /*horizontalne crte ozadja*/
     for (uint8_t i = 1; i < NBR_OF_HORIZONTAL_LINES; i++)
     {
-        UTIL_LCD_DrawHLine(0, (uint32_t)(i * LCD_DEFAULT_HEIGHT / NBR_OF_VERTICAL_LINES), LCD_DEFAULT_WIDTH,
+        UTIL_LCD_DrawHLine(0, (uint32_t)(i * LCD_DEFAULT_HEIGHT / NBR_OF_HORIZONTAL_LINES), LCD_DEFAULT_WIDTH,
                            BACKGROUND_LINES_COLOR);
     }
 
@@ -532,22 +535,26 @@ static void internal_dynamic_layer_draw_radar_dots(void)
         }
 
         // fade out cez RADAR_DOT_LIFE_SPAN sekund
-        uint32_t age = now - radar_dots[i].timestamp;
-        if (age > RADAR_DOT_LIFE_SPAN)
-        {
-            radar_dots[i].valid = 0;
-            continue;
-        }
 
-        uint8_t alpha = 0xFFU - (age * 0xFFU / RADAR_DOT_LIFE_SPAN);
+        uint32_t age = now - radar_dots[i].timestamp;
 
         float_t scaled_distance =
             (radar_dots[i].distance / (float_t)MAX_DISTANCE_TO_RENDER_DOT) * OUTER_HALF_CIRCLE_RADIUS;
+
         int16_t x = LCD_HALF_WIDTH + (int16_t)(scaled_distance * cosf(radar_dots[i].angle));
         int16_t y =
             LCD_DEFAULT_HEIGHT - MAIN_SWEEPER_BOTTOM_OFFSET + (int16_t)(scaled_distance * sinf(radar_dots[i].angle));
 
+        uint8_t alpha = 0xFFU - (age * 0xFFU / RADAR_DOT_LIFE_SPAN);
         uint32_t color = (alpha << 24) | 0x0018AB18;
+
+        // da v framebufferju ne ostane zadnja verzija blede pike ampak se cleara tisto piko in oznaci kot invalid
+        if (age >= RADAR_DOT_LIFE_SPAN)
+        {
+            radar_dots[i].valid = 0;
+            color = 0x00000000UL;
+        }
+
         UTIL_LCD_FillCircle(x, y, 4, color);
     }
 }
@@ -566,8 +573,8 @@ void add_new_radar_dot(float_t distance, float_t angle)
 
     radar_dots[radar_dots_next_index].angle = angle;
     radar_dots[radar_dots_next_index].distance = distance;
-    radar_dots[radar_dots_next_index].valid = 1;
     radar_dots[radar_dots_next_index].timestamp = HAL_GetTick();
+    radar_dots[radar_dots_next_index].valid = 1;
     ++radar_dots_next_index;
 
     buzzer_short_beep_start();

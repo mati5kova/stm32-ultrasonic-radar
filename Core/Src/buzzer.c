@@ -3,8 +3,8 @@
 
 extern TIM_HandleTypeDef htim15;
 
-static uint32_t beep_start_time = 0;
-static uint8_t beep_active = 0;
+static volatile uint32_t beep_start_time = 0;
+static volatile uint8_t beep_active = 0;
 
 volatile uint8_t buzzer_mode_active = 0;
 

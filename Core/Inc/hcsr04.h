@@ -19,6 +19,8 @@ void HCSR04_CheckEchoTimeout(void);
 
 void HCSR04_SetCurrentSweepAngle(float_t angle);
 
+uint8_t HCSR04_IsBusy(void);
+
 #ifdef __cplusplus
 }
 #endif
