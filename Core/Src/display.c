@@ -159,8 +159,14 @@ void MK_Display_Init(void)
     }
 
     // naredimo oba layerja vidna
-    BSP_LCD_SetLayerVisible(0, BACKGROUND_LAYER, ENABLE);
-    BSP_LCD_SetLayerVisible(0, DYNAMIC_LAYER, ENABLE);
+    if (BSP_LCD_SetLayerVisible(0, BACKGROUND_LAYER, ENABLE) != BSP_ERROR_NONE)
+    {
+        Error_Handler();
+    }
+    if (BSP_LCD_SetLayerVisible(0, DYNAMIC_LAYER, ENABLE) != BSP_ERROR_NONE)
+    {
+        Error_Handler();
+    }
 
     // transparency = 255 -> NE vidno skozi
     if (BSP_LCD_SetTransparency(0, BACKGROUND_LAYER, 255) != BSP_ERROR_NONE)
@@ -201,10 +207,16 @@ void wait_for_vsync(void)
 
 void draw_background_static_once(void)
 {
-    BSP_LCD_SetActiveLayer(0, DYNAMIC_LAYER);
+    if (BSP_LCD_SetActiveLayer(0, DYNAMIC_LAYER) != BSP_ERROR_NONE)
+    {
+        Error_Handler();
+    }
     UTIL_LCD_Clear(0x00000000UL);
 
-    BSP_LCD_SetActiveLayer(0, BACKGROUND_LAYER);
+    if (BSP_LCD_SetActiveLayer(0, BACKGROUND_LAYER) != BSP_ERROR_NONE)
+    {
+        Error_Handler();
+    }
     UTIL_LCD_Clear(BACKGROUND_COLOR);
 
     /*vertikalne crte ozadja*/
@@ -257,7 +269,10 @@ void draw_background_static_once(void)
 /*pocisti sweeper handle + text boxe namesto UTIL_LCD_Clear - bolj performant*/
 static inline void internal_clear_sweep_area(void)
 {
-    BSP_LCD_SetActiveLayer(0, DYNAMIC_LAYER);
+    if (BSP_LCD_SetActiveLayer(0, DYNAMIC_LAYER) != BSP_ERROR_NONE)
+    {
+        Error_Handler();
+    }
 
     if (!first_frame)
     {
@@ -295,7 +310,10 @@ void draw_dynamic_content(void)
         dt = FRAME_TIME_LIMIT;
     }
 
-    BSP_LCD_SetActiveLayer(0, DYNAMIC_LAYER);
+    if (BSP_LCD_SetActiveLayer(0, DYNAMIC_LAYER) != BSP_ERROR_NONE)
+    {
+        Error_Handler();
+    }
 
     /*pocisti obmocje sweeperja*/
     internal_clear_sweep_area();
@@ -435,9 +453,9 @@ static inline void internal_dynamic_layer_draw_distance(void)
         return;
     }
 
-    uint8_t str[10];
+    uint8_t str[9];
     snprintf((char*)str, 9, "%3.2fcm", (double_t)read_distance);
-    str[9] = '\0';
+    str[8] = '\0';
 
     // pocistimo obmocje kjer je prej lezal text
     UTIL_LCD_FillRect(LCD_HALF_WIDTH - (DISTANCE_TEXT_WIDTH / 2), DISTANCE_TEXT_Y, DISTANCE_TEXT_WIDTH, Font12.Height,
