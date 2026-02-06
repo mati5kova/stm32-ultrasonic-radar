@@ -1,6 +1,7 @@
 #ifndef __DISPLAY_H__
 #define __DISPLAY_H__
 
+#include "stm32h750b_discovery_ts.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -11,6 +12,8 @@ extern "C" {
 #define DYNAMIC_LAYER 1
 
 extern volatile uint8_t refresh_frame_flag;
+
+extern TS_State_t ts_state;
 
 extern float_t sweeper_handle_angle;
 

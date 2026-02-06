@@ -10,6 +10,7 @@
 #include "stm32h750b_discovery_errno.h"
 #include "stm32h750b_discovery_lcd.h"
 #include "stm32h750b_discovery_sdram.h"
+#include "stm32h750b_discovery_ts.h"
 #include "stm32h7xx_hal.h"
 #include <math.h>
 #include <stdint.h>
@@ -32,7 +33,7 @@ extern volatile uint16_t* internal_temperature_sensor_reading;
 /*50ms max da preprecimo prevelike skoke*/
 #define FRAME_TIME_LIMIT 0.05f
 /* popravek za floating point aritmetiko ce ne pridemo na tocno 2*F_PI (0->180) oziroma F_PI (180->0)
- * clampamo na vrednost in se še vedno obrnemo v drugo smer
+ * clampamo na vrednost in se #e vedno obrnemo v drugo smer
  */
 #define ANGLE_EPSILON 0.001f
 #define SWEEPER_HANDLE_THICKNESS_HALF 0.04f
@@ -51,6 +52,7 @@ extern volatile uint16_t* internal_temperature_sensor_reading;
 /*vse kar se zadeva vogalov*/
 #define NBR_OF_CORNERS 4
 #define CORNER_ARM_LENGTH 35
+#define CORNER_ARM_WIDTH 4
 #define CORNER_OFFSET_X 15
 #define CORNER_OFFSET_Y 15
 #define CORNER_COLOR LCD_COLOR_ARGB8888_ST_GREEN_LIGHT
@@ -73,6 +75,11 @@ extern volatile uint16_t* internal_temperature_sensor_reading;
 #define JOYSTICK_TEXT_X_MAX (LCD_DEFAULT_WIDTH - CORNER_OFFSET_X - 4)
 #define JOYSTICK_TEXT_WIDTH 90
 
+// default kordinate za ikono zvocnika levo zgoraj
+#define VOLUME_ICON_BASE_X (CORNER_OFFSET_X + CORNER_ARM_WIDTH + 1)
+#define VOLUME_ICON_BASE_Y (CORNER_OFFSET_Y + CORNER_ARM_WIDTH)
+#define VOLUME_ICON_COLOR LCD_COLOR_ARGB8888_WHITE
+
 /*radar dots*/
 #define MAX_DISTANCE_TO_RENDER_DOT 200 //[cm]
 #define MIN_DISTANCE_TO_RENDER_DOT 10  //[cm]
@@ -87,6 +94,8 @@ static uint8_t sweeper_direction = 1; // 1 = smer urinega kazalca (0->180), 0 = 
 static Point last_sweeper_points[4] = {0};
 static uint8_t first_frame = 1;
 
+TS_State_t ts_state;
+
 static inline void set_dot_data_zero(void);
 
 static inline void internal_draw_corner(void);
@@ -96,6 +105,7 @@ static void internal_draw_diagonal_lines(uint16_t x_center, uint16_t y_center, u
                                          uint16_t inner_radius);
 
 static inline void internal_clear_sweep_area(void);
+static inline void internal_dynamic_layer_draw_volume_icon(void);
 static inline void internal_dynamic_layer_draw_temp_sens(void);
 static inline void internal_dynamic_layer_draw_distance(void);
 static inline void internal_dynamic_layer_draw_joystick_aim_dir(void);
@@ -130,6 +140,19 @@ static Point corner_cordinates[4][2] = {
     /*desno spodaj*/
     {{LCD_DEFAULT_WIDTH - CORNER_OFFSET_X - CORNER_ARM_LENGTH, LCD_DEFAULT_HEIGHT - CORNER_OFFSET_Y},
      {LCD_DEFAULT_WIDTH - CORNER_OFFSET_X, LCD_DEFAULT_HEIGHT - CORNER_OFFSET_Y - CORNER_ARM_LENGTH}}};
+
+// oblika zvocnika, original narisan na papir
+static Point speaker_outline_points[6] = {
+    {VOLUME_ICON_BASE_X + 4, VOLUME_ICON_BASE_Y + 11},  //
+    {VOLUME_ICON_BASE_X + 10, VOLUME_ICON_BASE_Y + 11}, //
+    {VOLUME_ICON_BASE_X + 16, VOLUME_ICON_BASE_Y + 7},  //
+    {VOLUME_ICON_BASE_X + 16, VOLUME_ICON_BASE_Y + 23}, //
+    {VOLUME_ICON_BASE_X + 10, VOLUME_ICON_BASE_Y + 19}, //
+    {VOLUME_ICON_BASE_X + 4, VOLUME_ICON_BASE_Y + 19},  //
+
+};
+
+volatile uint8_t prev_buzzer_mode_active = 0;
 
 static inline void set_dot_data_zero(void)
 {
@@ -188,6 +211,23 @@ void MK_Display_Init(void)
 
     UTIL_LCD_SetFuncDriver(&LCD_Driver);
 
+    // touchsreen init
+    TS_Init_t ts_init = {0};
+    ts_init.Height = LCD_DEFAULT_HEIGHT;
+    ts_init.Width = LCD_DEFAULT_WIDTH;
+    ts_init.Orientation = LCD_ORIENTATION_LANDSCAPE;
+    ts_init.Accuracy = 5;
+    if (BSP_TS_Init(0, &ts_init) != BSP_ERROR_NONE)
+    {
+        Error_Handler();
+    }
+
+    if (BSP_TS_EnableIT(0) != BSP_ERROR_NONE)
+    {
+        Error_Handler();
+    }
+
+    // prizgemo display
     if (BSP_LCD_DisplayOn(0) != BSP_ERROR_NONE)
     {
         Error_Handler();
@@ -283,14 +323,7 @@ static inline void internal_clear_sweep_area(void)
         UTIL_LCD_FillPolygon(last_sweeper_points, 4, 0x00000000UL);
     }
 
-    // pocisti text boxe
-    // UTIL_LCD_FillRect(INTERNAL_TEMP_TEXT_X, INTERNAL_TEMP_TEXT_Y, INTERNAL_TEMP_TEXT_WIDTH, Font12.Height,
-    //                   0x00000000UL);
-    // UTIL_LCD_FillRect(LCD_HALF_WIDTH - (DISTANCE_TEXT_WIDTH / 2), DISTANCE_TEXT_Y, DISTANCE_TEXT_WIDTH,
-    // Font12.Height,
-    //                   0x00000000UL);
-    // UTIL_LCD_FillRect(JOYSTICK_TEXT_X_MAX - JOYSTICK_TEXT_WIDTH, JOYSTICK_TEXT_Y, JOYSTICK_TEXT_WIDTH, Font12.Height,
-    //                   0x00000000UL);
+    // text boxi se clearajo v posameznih funkcijah za tisti text
 }
 
 /*render vseh dinamicnih elementov*/
@@ -321,6 +354,8 @@ void draw_dynamic_content(void)
     /*pocisti obmocje sweeperja*/
     internal_clear_sweep_area();
 
+    // buzzer mode
+    internal_dynamic_layer_draw_volume_icon();
     /*razdalja ki jo trenutno meri HC-SR04*/
     internal_dynamic_layer_draw_distance();
     /*trenutna temperatura internega temperaturnega senzorja*/
@@ -371,9 +406,9 @@ static inline void internal_draw_corner(void)
     for (uint8_t i = 0; i < NBR_OF_CORNERS; i++)
     {
         UTIL_LCD_FillRect(corner_cordinates[i][0].X, corner_cordinates[i][0].Y,
-                          CORNER_ARM_LENGTH + (i == 0 || i == 1 ? 3 : 0), 4,
+                          CORNER_ARM_LENGTH + (i == 0 || i == 1 ? 3 : 0), CORNER_ARM_WIDTH,
                           CORNER_COLOR); // rise crto v desno
-        UTIL_LCD_FillRect(corner_cordinates[i][1].X, corner_cordinates[i][1].Y, 4,
+        UTIL_LCD_FillRect(corner_cordinates[i][1].X, corner_cordinates[i][1].Y, CORNER_ARM_WIDTH,
                           CORNER_ARM_LENGTH + (i == NBR_OF_CORNERS - 1 ? 4 : 0),
                           CORNER_COLOR); // rise crto navzdol
     }
@@ -429,6 +464,77 @@ static void internal_draw_diagonal_lines(uint16_t x_center, uint16_t y_center, u
         uint16_t y_inner = y_center + (int16_t)((outer_radius + 6 - extension * 0.75f) * sinf(F_PI + i * small_slice));
 
         UTIL_LCD_DrawLine(x_inner, y_inner, x_outer, y_outer, BACKGROUND_DIAGONAL_LINES_COLOR);
+    }
+}
+
+static inline void internal_dynamic_layer_draw_volume_icon(void)
+{
+    /* first_frame se nastavi na 0 v `internal_dynamic_layer_draw_sweeper_line` ni potrebno tukaj (mogoce bi bilo bolje
+     * zaradi doslednosti)
+     *
+     * early return je tukaja da ne re-renderamo celotne volume ikone vsak frame
+     */
+    if (buzzer_mode_active == prev_buzzer_mode_active && !first_frame)
+    {
+        return;
+    }
+    prev_buzzer_mode_active = buzzer_mode_active;
+
+    UTIL_LCD_FillRect(VOLUME_ICON_BASE_X, VOLUME_ICON_BASE_Y, 35, 35, 0x00000000UL);
+
+    UTIL_LCD_FillPolygon(speaker_outline_points, 6, VOLUME_ICON_COLOR);
+
+    if (buzzer_mode_active)
+    {
+        uint16_t sound_bar_x = VOLUME_ICON_BASE_X + 16;
+        uint16_t sound_bar_y = VOLUME_ICON_BASE_Y + 15;
+        float_t arch = 0.7f;
+
+        // lepe oddaljenosti od zacetka so 5, 8.5 in 12 (+3.5)
+        // -0.7 do +0.7 ustvari lep lok
+
+        for (float a = -arch; a <= arch; a += 0.08f)
+        {
+            UTIL_LCD_SetPixel(sound_bar_x + (5.0f * cosf(a)), sound_bar_y + (5.0f * sinf(a)), VOLUME_ICON_COLOR);
+            UTIL_LCD_SetPixel(sound_bar_x + (5.0f * cosf(a)) + 1, sound_bar_y + (5.0f * sinf(a)), VOLUME_ICON_COLOR);
+        }
+
+        for (float a = -arch; a <= arch; a += 0.08f)
+        {
+            UTIL_LCD_SetPixel(sound_bar_x + (8.5f * cosf(a)), sound_bar_y + (8.5f * sinf(a)), VOLUME_ICON_COLOR);
+            UTIL_LCD_SetPixel(sound_bar_x + (8.5f * cosf(a)) + 1, sound_bar_y + (8.5f * sinf(a)), VOLUME_ICON_COLOR);
+        }
+
+        for (float a = -arch; a <= arch; a += 0.08f)
+        {
+            UTIL_LCD_SetPixel(sound_bar_x + (12.0f * cosf(a)), sound_bar_y + (12.0f * sinf(a)), VOLUME_ICON_COLOR);
+            UTIL_LCD_SetPixel(sound_bar_x + (12.0f * cosf(a)) + 1, sound_bar_y + (12.0f * sinf(a)), VOLUME_ICON_COLOR);
+        }
+    }
+    else
+    {
+        // sredisce kri#a
+        uint16_t cross_x = VOLUME_ICON_BASE_X + 24;
+        uint16_t cross_y = VOLUME_ICON_BASE_Y + 15;
+        // rob vsake nogice je za toliko enot odmaknjen od sredisca
+        uint8_t cross_size = 5;
+
+        // ponovimo dvakrat da je bolj debelo, i predstavlja offset
+        for (int8_t i = 0; i <= 1; i++)
+        {
+            // levo gor do desno dol - odebeljeno v x smer (+i)
+            UTIL_LCD_DrawLine(cross_x - cross_size + i, cross_y - cross_size, cross_x + cross_size + i,
+                              cross_y + cross_size, VOLUME_ICON_COLOR);
+            // levo gor do desno dol - odebeljeno v y smer
+            UTIL_LCD_DrawLine(cross_x - cross_size, cross_y - cross_size + i, cross_x + cross_size,
+                              cross_y + cross_size + i, VOLUME_ICON_COLOR);
+            // desno gor do levo dol - odebeljeno v x smer (-i)
+            UTIL_LCD_DrawLine(cross_x + cross_size - i, cross_y - cross_size, cross_x - cross_size - i,
+                              cross_y + cross_size, VOLUME_ICON_COLOR);
+            // desno gor do levo dol - odebeljeno v y smer
+            UTIL_LCD_DrawLine(cross_x + cross_size, cross_y - cross_size + i, cross_x - cross_size,
+                              cross_y + cross_size + i, VOLUME_ICON_COLOR);
+        }
     }
 }
 

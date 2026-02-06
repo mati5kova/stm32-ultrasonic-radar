@@ -7,6 +7,8 @@ extern "C" {
 
 #include "main.h"
 
+extern volatile uint8_t buzzer_mode_active;
+
 void buzzer_short_beep_start(void);
 
 void buzzer_update(void);

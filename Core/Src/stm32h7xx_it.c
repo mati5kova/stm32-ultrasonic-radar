@@ -27,6 +27,10 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "hcsr04.h"
+#include "stm32h750b_discovery_ts.h"
+#include "stm32h750xx.h"
+#include "stm32h7xx_hal.h"
+#include "stm32h7xx_hal_exti.h"
 #include "stm32h7xx_hal_gpio.h"
 #include "stm32h7xx_hal_tim.h"
 #include "tim.h"
@@ -39,6 +43,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define TOUCH_DEBOUNCE_MS 150
 
 /* USER CODE END PD */
 
@@ -49,8 +54,12 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-uint32_t last_interrupt_exti_15_10_pin13 = 0;
-uint32_t last_interrupt_exti_3_pin3 = 0;
+static uint32_t last_interrupt_exti_15_10_pin13 = 0;
+
+static uint32_t last_interrupt_exti_3_pin3 = 0;
+
+static uint32_t last_touch_time = 0;
+static uint8_t last_touch_state = 0;
 
 /* USER CODE END PV */
 
@@ -292,6 +301,40 @@ void EXTI3_IRQHandler(void)
         }
         last_interrupt_exti_3_pin3 = now;
     }
+}
+
+void EXTI2_IRQHandler(void)
+{
+    // poklice HAL_EXTI_IRQHandler
+    BSP_TS_IRQHandler(0);
+}
+
+void BSP_TS_Callback(uint32_t Instance)
+{
+    if (BSP_TS_GetState(Instance, &ts_state) != BSP_ERROR_NONE)
+    {
+        Error_Handler();
+    }
+
+    uint32_t now = HAL_GetTick();
+
+    // touch debounce
+    if ((now - last_touch_time) < TOUCH_DEBOUNCE_MS)
+    {
+        return;
+    }
+
+    // "rising edge" dotika
+    if (ts_state.TouchDetected && !last_touch_state)
+    {
+        if (ts_state.TouchX < 60 && ts_state.TouchY < 60)
+        {
+            toggle_buzzer_mode();
+            last_touch_time = now;
+        }
+    }
+
+    last_touch_state = ts_state.TouchDetected;
 }
 
 /* USER CODE END 1 */
