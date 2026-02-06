@@ -7,7 +7,7 @@ extern "C" {
 
 #include "main.h"
 
-#define HCSR04_ECHO_TIMEOUT_MS 35
+#define HCSR04_ECHO_TIMEOUT_MS 45
 
 void HCSR04_Trigger(void);
 

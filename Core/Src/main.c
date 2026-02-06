@@ -52,7 +52,6 @@
 #include <stdio.h>
 #include <string.h>
 
-
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -203,8 +202,8 @@ int main(void)
 
         uint32_t now = HAL_GetTick();
 
-        // HC-SR04 trigger 10 Hz
-        if (now - last_hcsr >= 100)
+        // HC-SR04 trigger 3 Hz
+        if (now - last_hcsr >= 333)
         {
             last_hcsr = now;
             HCSR04_SetCurrentSweepAngle(sweeper_handle_angle);

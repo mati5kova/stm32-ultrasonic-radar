@@ -2,9 +2,13 @@
 #include "buzzer.h"
 #include "display.h"
 #include "helper_functions.h"
+#include "stm32h7xx_hal.h"
 #include "stm32h7xx_hal_rcc.h"
+#include "stm32h7xx_hal_tim.h"
 #include <math.h>
 #include <stdint.h>
+
+#define HCSR04_MAX_RANGE 400.0f
 
 extern TIM_HandleTypeDef htim12;
 
@@ -41,6 +45,20 @@ uint8_t HCSR04_ReadDistance(float_t* addr)
 
 void HCSR04_OnCapture(void)
 {
+    /* dodaten check da preverimo ce je timeout ze potekel, lahko se zgodi da bi izgubili meritev ce pride nov trigger
+     * med obdelavo falling edge-a
+     */
+    if (last_captured_rising_edge)
+    {
+        uint32_t now = HAL_GetTick();
+        if (now - last_echo_rising_edge_tick_ms > HCSR04_ECHO_TIMEOUT_MS)
+        {
+            last_captured_rising_edge = 0;
+            __HAL_TIM_SET_CAPTUREPOLARITY(&htim12, TIM_CHANNEL_2, TIM_ICPOLARITY_RISING);
+            return;
+        }
+    }
+
     // zacetek celovite meritve
     if (!last_captured_rising_edge)
     {
@@ -69,7 +87,11 @@ void HCSR04_OnCapture(void)
         calculated_distance = (diff * 0.034f) / 2.0f;
         has_new_measurement = 1;
 
-        add_new_radar_dot(calculated_distance, measurement_angle);
+        if (calculated_distance > 0.0f && calculated_distance < HCSR04_MAX_RANGE)
+        {
+            has_new_measurement = 1;
+            add_new_radar_dot(calculated_distance, measurement_angle);
+        }
 
         last_captured_rising_edge = 0;
         __HAL_TIM_SET_CAPTUREPOLARITY(&htim12, TIM_CHANNEL_2, TIM_ICPOLARITY_RISING);
