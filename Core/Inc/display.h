@@ -1,7 +1,6 @@
 #ifndef __DISPLAY_H__
 #define __DISPLAY_H__
 
-#include "stm32h750b_discovery_ts.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

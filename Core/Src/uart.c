@@ -4,9 +4,9 @@ UART_HandleTypeDef huart3 = {0};
 
 void MK_UART_Init(void)
 {
-
     /* USART3 VCP */
     __HAL_RCC_USART3_CLK_ENABLE();
+
     huart3.Instance = USART3;
     huart3.Init.BaudRate = 115200;
     huart3.Init.Mode = UART_MODE_TX_RX;

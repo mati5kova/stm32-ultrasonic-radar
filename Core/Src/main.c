@@ -201,8 +201,8 @@ int main(void)
 
         uint32_t now = HAL_GetTick();
 
-        // HC-SR04 trigger 3 Hz
-        if (!HCSR04_IsBusy() && now - last_hcsr >= 333)
+        // HC-SR04 trigger 5 Hz
+        if (!HCSR04_IsBusy() && now - last_hcsr >= 200)
         {
             last_hcsr = now;
             HCSR04_SetCurrentSweepAngle(sweeper_handle_angle);

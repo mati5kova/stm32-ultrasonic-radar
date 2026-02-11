@@ -12,15 +12,18 @@ __attribute__((section(".dma_buffer"), aligned(32))) volatile uint16_t adc3_dma_
 
 volatile uint16_t* internal_temperature_sensor_reading = &adc3_dma_values[0];
 
+// glej AN3116 - STM32's ADC modes and their applications
 void MK_ADC_Init(void)
 {
+    /*multichannel (scan) continous conversion mode*/
     __HAL_RCC_ADC3_CLK_ENABLE();
 
     hadc3.Instance = ADC3;
     hadc3.Init.ClockPrescaler = ADC_CLOCKPRESCALER_PCLK_DIV1;
     hadc3.Init.Resolution = ADC_RESOLUTION_16B;
+    // continious conversion -> ne ustavi se po prvi rundi konverzij ampak se vrne na zacetek in to ponavlja v nedogled
     hadc3.Init.ContinuousConvMode = ENABLE;
-    hadc3.Init.ScanConvMode = ADC_SCAN_ENABLE;
+    hadc3.Init.ScanConvMode = ADC_SCAN_ENABLE; // scan = multichannel
     hadc3.Init.DiscontinuousConvMode = DISABLE;
     hadc3.Init.NbrOfDiscConversion = 0;
     hadc3.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DMA_CIRCULAR;
@@ -97,6 +100,7 @@ void MK_ADC_Init(void)
 
     __HAL_LINKDMA(&hadc3, DMA_Handle, hdma_adc3);
 
-    HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 7, 7);
-    HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
+    // debug
+    // HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 7, 7);
+    // HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
 }

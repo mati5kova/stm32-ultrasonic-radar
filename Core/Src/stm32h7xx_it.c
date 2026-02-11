@@ -234,15 +234,6 @@ void USART3_IRQHandler(void)
     }
 }
 
-void DMA1_Stream0_IRQHandler(void)
-{
-    HAL_DMA_IRQHandler(&hdma_adc3);
-
-    /* debug */
-    // volatile uint32_t err = hdma_adc3.ErrorCode;
-    // (void)err;
-}
-
 void TIM8_BRK_TIM12_IRQHandler(void)
 {
     // HAL_TIM_IRQHandler nastavi htim->Channel = HAL_TIM_ACTIVE_CHANNEL_2 in klice HAL_TIM_IC_CaptureCallback
@@ -336,5 +327,15 @@ void BSP_TS_Callback(uint32_t Instance)
 
     last_touch_state = ts_state.TouchDetected;
 }
+
+/* debug
+void DMA1_Stream0_IRQHandler(void)
+{
+    HAL_DMA_IRQHandler(&hdma_adc3);
+
+    // volatile uint32_t err = hdma_adc3.ErrorCode;
+    // (void)err;
+}
+*/
 
 /* USER CODE END 1 */

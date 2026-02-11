@@ -7,6 +7,8 @@
 #include "stm32h7xx_hal_rcc.h"
 #include "stm32h7xx_hal_tim.h"
 
+#define DISPLAY_FPS 30U
+
 void MK_Internal_TIM15_Init(void);
 void MK_Internal_TIM3_Init(void);
 void MK_Internal_TIM6_Init(void);
@@ -21,7 +23,7 @@ TIM_HandleTypeDef htim7 = {0};
 
 void MK_TIM_Init(void)
 {
-    MK_Internal_TIM15_Init(); // buzzer pwm
+    MK_Internal_TIM15_Init();
     MK_Internal_TIM12_Init();
     MK_Internal_TIM6_Init();
     MK_Internal_TIM3_Init();
@@ -197,12 +199,8 @@ void MK_Internal_TIM3_Init(void)
     {
         Error_Handler();
     }
-
-    // HAL_NVIC_SetPriority(TIM3_IRQn, 4, 4);
-    // HAL_NVIC_EnableIRQ(TIM3_IRQn);
 }
 
-#define FPS 30U
 /*
  * osvezevanje ekrana
  */
@@ -213,7 +211,7 @@ void MK_Internal_TIM7_Init(void)
     htim7.Instance = TIM7;
     htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
     htim7.Init.Prescaler = (HAL_RCC_GetPCLK1Freq() / 1e5) - 1U; // 100kHz
-    htim7.Init.Period = (100000U / FPS) - 1U;
+    htim7.Init.Period = (100000U / DISPLAY_FPS) - 1U;
     htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
     if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
     {

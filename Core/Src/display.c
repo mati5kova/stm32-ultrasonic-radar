@@ -23,12 +23,7 @@ extern volatile uint16_t* internal_temperature_sensor_reading;
 
 #define F_PI 3.14159265358979323846f
 
-/*
- * 1.571 = 90°/sec (0->180° ~4 sekund)
- * 0.785 = 45°/sec (0->180° ~8 sekund)
- * 0.524 = 30°/sec (0->180° ~12 sekund)
- * 0.262 = 15°/sec (0->180° ~24 sekund)
- */
+/*kotna hitrost sweeperja*/
 #define SWEEPER_ANGULAR_VELOCITY 0.785f
 /*50ms max da preprecimo prevelike skoke*/
 #define FRAME_TIME_LIMIT 0.05f
@@ -81,7 +76,7 @@ extern volatile uint16_t* internal_temperature_sensor_reading;
 #define VOLUME_ICON_COLOR LCD_COLOR_ARGB8888_WHITE
 
 /*radar dots*/
-#define MAX_DISTANCE_TO_RENDER_DOT 200 //[cm]
+#define MAX_DISTANCE_TO_RENDER_DOT 400 //[cm]
 #define MIN_DISTANCE_TO_RENDER_DOT 10  //[cm]
 #define NBR_OF_RADAR_DOTS 150
 #define RADAR_DOT_LIFE_SPAN 6000 // [ms]
@@ -333,7 +328,6 @@ void draw_dynamic_content(void)
     /* izracunamo casovno razliko (delta time) (v sekundah) od zadnjega frame-a
      *  brez tega ne upostevamo frame rate-a in bi se sweeper premikal razlicno glede na fps (nastavljen v initu za
      *  TIM7)
-     *
      */
     float_t dt = (now - last_tick) * 0.001f;
     last_tick = now;

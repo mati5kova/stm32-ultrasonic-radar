@@ -41,7 +41,6 @@ extern "C" {
 #include "stm32h7xx_hal_dma.h"
 #include "stm32h7xx_hal_rcc.h"
 #include "stm32h7xx_hal_cortex.h"
-
 #include <stdint.h>
 #include <stdbool.h>
 #include <math.h>
@@ -51,8 +50,9 @@ extern "C" {
 #include "stm32h7xx_hal_dma.h"
 #include "stm32h7xx_hal_tim.h"
 #include "stm32h7xx_hal_uart.h"
-#include <math.h>
+#include "stm32h750b_discovery_ts.h"
 #include <stdio.h>
+#include <string.h>
 
 
 /* USER CODE END Includes */

@@ -3,10 +3,10 @@
 
 extern TIM_HandleTypeDef htim15;
 
-static volatile uint32_t beep_start_time = 0;
-static volatile uint8_t beep_active = 0;
+volatile uint8_t buzzer_mode_active = 0; // globalni flag da vemo ali smo v piskajocem nacinu ali ne
 
-volatile uint8_t buzzer_mode_active = 0;
+static volatile uint32_t beep_start_time = 0; // zacetek zadnjega piska
+static volatile uint8_t beep_active = 0;      // ali buzzer trenutno piska
 
 void buzzer_short_beep_start(void)
 {
